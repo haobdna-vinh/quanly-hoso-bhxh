@@ -193,28 +193,33 @@ def init_db_tables():
         conn.rollback()
 
 init_db_tables()
-
 def load_dm_donvi():
+    """Tải dữ liệu chính xác theo cấu trúc bảng DM_donvi trên Supabase"""
     try:
         conn = get_db_connection()
-        return pd.read_sql_query("SELECT ma_don_vi, ten_don_vi, dia_chi, dien_thoai FROM dm_donvi ORDER BY ma_don_vi;", conn)
-    except Exception:
+        # Truy vấn đúng tên bảng "DM_donvi" và các cột mADV, tenDV, diachidv, dienthoai
+        query = 'SELECT COALESCE("mADV", \'\') as ma_don_vi, "tenDV" as ten_don_vi, "diachidv" as dia_chi, "dienthoai" as dien_thoai FROM "DM_donvi" ORDER BY "tenDV";'
+        df = pd.read_sql_query(query, conn)
+        return df
+    except Exception as e:
+        st.error(f"Lỗi tải DM_donvi: {e}")
         return pd.DataFrame(columns=["ma_don_vi", "ten_don_vi", "dia_chi", "dien_thoai"])
 
 def save_or_update_dm_donvi(ma_dv, ten_dv, dia_chi, dien_thoai):
+    """Cập nhật dữ liệu vào bảng DM_donvi"""
     if not ma_dv.strip():
         return False
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         query = """
-            INSERT INTO dm_donvi (ma_don_vi, ten_don_vi, dia_chi, dien_thoai)
+            INSERT INTO "DM_donvi" ("mADV", "tenDV", "diachidv", "dienthoai")
             VALUES (%s, %s, %s, %s)
-            ON CONFLICT (ma_don_vi) 
+            ON CONFLICT ("mADV") 
             DO UPDATE SET 
-                ten_don_vi = EXCLUDED.ten_don_vi,
-                dia_chi = EXCLUDED.dia_chi,
-                dien_thoai = EXCLUDED.dien_thoai;
+                "tenDV" = EXCLUDED."tenDV",
+                "diachidv" = EXCLUDED."diachidv",
+                "dienthoai" = EXCLUDED."dienthoai";
         """
         cursor.execute(query, (ma_dv.strip(), ten_dv.strip(), dia_chi.strip(), dien_thoai.strip()))
         conn.commit()
@@ -224,7 +229,6 @@ def save_or_update_dm_donvi(ma_dv, ten_dv, dia_chi, dien_thoai):
         conn.rollback()
         st.error(f"Lỗi cập nhật danh mục đơn vị: {e}")
         return False
-
 def load_hoso_data(from_date=None, to_date=None, search_term=""):
     try:
         conn = get_db_connection()
