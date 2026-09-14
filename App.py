@@ -421,6 +421,9 @@ with tab1:
 # ------------------------------------------
 # TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ
 # ------------------------------------------
+# ------------------------------------------
+# TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ
+# ------------------------------------------
 with tab2:
     st.subheader("Thống kê hồ sơ & Thao tác in/sửa/xóa")
     
@@ -496,7 +499,6 @@ with tab2:
             col_ph_title, col_ph_btn, col_ph_close = st.columns([5, 2, 1.2])
             col_ph_title.write(f"🖨️ **Cửa sổ in phôi B5 ngang:** `{row_p['ma_van_don']}`")
             
-            # Nút Gửi lệnh đến máy in
             if col_ph_btn.button("🖨️ Gửi lệnh máy in", type="primary", key="btn_trigger_print"):
                 st.markdown("""
                     <script>
@@ -543,56 +545,39 @@ with tab2:
             st.markdown(envelope_html, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- BẢNG DANH SÁCH TÌM KIẾM KẺ BẢNG RÕ RÀNG ---
+        # --- BẢNG DANH SÁCH TÌM KIẾM CHUẨN GỌN GÀNG ---
         st.write(f"**Danh sách kết quả tìm kiếm ({len(df_tab2)} hồ sơ):**")
         
-        table_html = """
-        <table class="custom-table">
-            <thead>
-                <tr>
-                    <th style="width: 5%;">STT</th>
-                    <th style="width: 12%;">Ngày gửi</th>
-                    <th style="width: 18%;">Số hiệu bưu gửi</th>
-                    <th style="width: 25%;">Tên đơn vị</th>
-                    <th style="width: 25%;">Địa chỉ</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-        
+        # Tiêu đề cột
+        header_cols = st.columns([0.6, 1.2, 1.8, 2.5, 3.2, 1.8])
+        header_cols[0].markdown("**STT**")
+        header_cols[1].markdown("**Ngày gửi**")
+        header_cols[2].markdown("**Số hiệu**")
+        header_cols[3].markdown("**Tên đơn vị**")
+        header_cols[4].markdown("**Địa chỉ**")
+        header_cols[5].markdown("**Thao tác**")
+        st.divider()
+
+        # Danh sách dòng kèm nút thao tác trên cùng 1 hàng
         for idx, row in df_tab2.reset_index(drop=True).iterrows():
             ngay_str = pd.to_datetime(row['ngay_nhan']).strftime('%d/%m/%Y') if pd.notnull(row['ngay_nhan']) else ""
-            table_html += f"""
-                <tr>
-                    <td>{idx + 1}</td>
-                    <td>{ngay_str}</td>
-                    <td><b>{row['ma_van_don']}</b></td>
-                    <td>{row['ten_don_vi']}</td>
-                    <td>{row['dia_chi']}</td>
-                </tr>
-            """
-        table_html += "</tbody></table>"
-        st.markdown(table_html, unsafe_allow_html=True)
-        
-        st.write("")
-        st.write("**Thao tác In / Sửa / Xóa cho từng dòng hồ sơ:**")
-        
-        # Các nút bấm In / Sửa / Xóa được gom gọn gàng trên cùng 1 hàng cho mỗi dòng
-        for idx, row in df_tab2.reset_index(drop=True).iterrows():
-            ngay_str = pd.to_datetime(row['ngay_nhan']).strftime('%d/%m/%Y') if pd.notnull(row['ngay_nhan']) else ""
-            col_info, col_b1, col_b2, col_b3 = st.columns([5.5, 1.2, 1.2, 1.2])
             
-            col_info.write(f"**[{idx+1}] {row['ma_van_don']}** — {row['ten_don_vi']} ({ngay_str})")
+            row_cols = st.columns([0.6, 1.2, 1.8, 2.5, 3.2, 1.8])
+            row_cols[0].write(str(idx + 1))
+            row_cols[1].write(ngay_str)
+            row_cols[2].markdown(f"**{row['ma_van_don']}**")
+            row_cols[3].write(row['ten_don_vi'])
+            row_cols[4].write(row['dia_chi'])
             
-            if col_b1.button("🖨️ In", key=f"tbl_in_{row['id']}"):
+            # Cột chứa 3 nút In / Sửa / Xóa trên cùng 1 hàng nhỏ gọn
+            sub_b1, sub_b2, sub_b3 = row_cols[5].columns(3)
+            if sub_b1.button("🖨️", key=f"t_in_{row['id']}", help="In phong bì"):
                 st.session_state['selected_print_id'] = row['id']
                 st.rerun()
-                
-            if col_b2.button("✏️ Sửa", key=f"tbl_sua_{row['id']}"):
+            if sub_b2.button("✏️", key=f"t_sua_{row['id']}", help="Sửa hồ sơ"):
                 st.session_state['editing_id'] = row['id']
                 st.rerun()
-                
-            if col_b3.button("🗑️ Xóa", key=f"tbl_xoa_{row['id']}"):
+            if sub_b3.button("🗑️", key=f"t_xoa_{row['id']}", help="Xóa hồ sơ"):
                 try:
                     conn = get_db_connection()
                     cursor = conn.cursor()
@@ -604,8 +589,9 @@ with tab2:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Lỗi khi xóa: {e}")
+            
+            st.divider()
 
-        st.divider()
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
             df_tab2.to_excel(writer, index=False, sheet_name='Danh_Sach_Tim_Kiem')
