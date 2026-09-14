@@ -85,9 +85,9 @@ def init_connection():
         database=st.secrets["postgres"]["database"],
         user=st.secrets["postgres"]["user"],
         password=st.secrets["postgres"]["password"],
+        sslmode="require",  # <-- BẮT BUỘC có dòng này đối với PostgreSQL Cloud
         connect_timeout=10
     )
-
 def get_db_connection():
     try:
         conn = init_connection()
