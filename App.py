@@ -246,25 +246,37 @@ with tab1:
     
     df_dm = load_dm_donvi()
     
-    # Ô tìm kiếm autocomplete danh mục đơn vị
-    search_dv = st.text_input("🔍 Gõ Tên hoặc Mã đơn vị để tìm kiếm nhanh từ DM_donvi:", key="search_dv_tab1")
+    # 1. Ô tìm kiếm đơn vị
+    search_dv = st.text_input("🔍 Gõ Tên hoặc Mã đơn vị để tìm kiếm từ DM_donvi:", key="search_dv_tab1").strip()
     
     selected_unit = None
-    if search_dv:
-        filtered_dm = df_dm[
-            df_dm['ma_don_vi'].astype(str).str.contains(search_dv, case=False, na=False) |
-            df_dm['ten_don_vi'].astype(str).str.contains(search_dv, case=False, na=False)
-        ]
-        if not filtered_dm.empty:
-            options = [f"{row['ma_don_vi']} - {row['ten_don_vi']}" for _, row in filtered_dm.iterrows()]
-            selected_option = st.selectbox("Chọn đơn vị từ danh sách gợi ý:", options=options)
-            sel_code = selected_option.split(" - ")[0]
-            selected_unit = filtered_dm[filtered_dm['ma_don_vi'] == sel_code].iloc[0]
-            st.info("💡 Bạn có thể sửa Mã đơn vị, Địa chỉ, SĐT bên dưới. Khi bấm Lưu, dữ liệu sẽ tự động CẬP NHẬT lại vào DM_donvi.")
+    
+    if not df_dm.empty:
+        # Lọc danh mục đơn vị không phân biệt chữ hoa / chữ thường
+        if search_dv:
+            filtered_dm = df_dm[
+                df_dm['ma_don_vi'].astype(str).str.contains(search_dv, case=False, na=False) |
+                df_dm['ten_don_vi'].astype(str).str.contains(search_dv, case=False, na=False)
+            ]
         else:
-            st.warning("⚠️ Đơn vị này KHÔNG CÓ trong DM_donvi. Nếu nhập thêm Mã đơn vị sẽ TỰ ĐỘNG THÊM MỚI vào danh mục; nếu để trống Mã đơn vị thì CHỈ LƯU HỒ SƠ 1 LẦN.")
-
-    with st.form("form_tab1", clear_on_submit=False):
+            filtered_dm = df_dm
+            
+        if not filtered_dm.empty:
+            # Tạo danh sách gợi ý cho Selectbox
+            options = ["-- Chọn đơn vị từ danh sách gợi ý --"] + [
+                f"{row['ma_don_vi']} - {row['ten_don_vi']}" for _, row in filtered_dm.iterrows()
+            ]
+            
+            selected_option = st.selectbox("Danh sách đơn vị phù hợp (Bấm chọn để tự động điền):", options=options)
+            
+            if selected_option != "-- Chọn đơn vị từ danh sách gợi ý --":
+                sel_code = selected_option.split(" - ")[0]
+                selected_unit = df_dm[df_dm['ma_don_vi'] == sel_code].iloc[0]
+                st.info("💡 Đã tự động điền thông tin đơn vị. Bạn có thể chỉnh sửa Mã, Địa chỉ, SĐT bên dưới trước khi bấm Lưu.")
+        else:
+            st.warning("⚠️ Không tìm thấy đơn vị trong DM_donvi. Nhập Mã đơn vị bên dưới nếu muốn THÊM MỚI vào danh mục.")
+    else:
+        st.info("💡 Danh mục DM_donvi hiện chưa có dữ liệu. Hãy nhập thông tin bên dưới để thêm đơn vị đầu tiên.")    with st.form("form_tab1", clear_on_submit=False):
         col1, col2 = st.columns(2)
         default_ngay_nhan = datetime.now().date() - timedelta(days=1)
         
