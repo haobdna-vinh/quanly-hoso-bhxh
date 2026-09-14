@@ -270,40 +270,49 @@ tab1, tab2, tab3 = st.tabs([
 # ------------------------------------------
 # TAB 1: NHẬP HỒ SƠ & LOGIC XỬ LÝ ĐƠN VỊ
 # ------------------------------------------
+# ------------------------------------------
+# TAB 1: NHẬP HỒ SƠ & LOGIC XỬ LÝ ĐƠN VỊ
+# ------------------------------------------
 with tab1:
     st.subheader("Nhập hồ sơ gửi & Cập nhật Danh mục Đơn vị")
     
     df_dm = load_dm_donvi()
     
-    # 1. Ô tìm kiếm đơn vị
-    search_dv = st.text_input("🔍 Gõ Tên hoặc Mã đơn vị để tìm kiếm từ DM_donvi:", key="search_dv_tab1").strip()
-    
-    selected_unit = None
-    
+    # Chuẩn hóa dữ liệu trong DataFrame tránh lỗi NaN khi tìm kiếm
     if not df_dm.empty:
-        if search_dv:
-            filtered_dm = df_dm[
-                df_dm['ma_don_vi'].astype(str).str.contains(search_dv, case=False, na=False) |
-                df_dm['ten_don_vi'].astype(str).str.contains(search_dv, case=False, na=False)
-            ]
+        df_dm['ma_don_vi'] = df_dm['ma_don_vi'].fillna('').astype(str).str.strip()
+        df_dm['ten_don_vi'] = df_dm['ten_don_vi'].fillna('').astype(str).str.strip()
+        df_dm['dia_chi'] = df_dm['dia_chi'].fillna('').astype(str).str.strip()
+        df_dm['dien_thoai'] = df_dm['dien_thoai'].fillna('').astype(str).str.strip()
+
+    # Tạo danh sách hiển thị dạng "Mã - Tên" hoặc chỉ "Tên" nếu không có mã
+    unit_options = ["-- Chọn hoặc gõ tên/mã đơn vị bên dưới --"]
+    if not df_dm.empty:
+        for _, row in df_dm.iterrows():
+            code_str = f"[{row['ma_don_vi']}] " if row['ma_don_vi'] else ""
+            unit_options.append(f"{code_str}{row['ten_don_vi']}")
+
+    # Sử dụng duy nhất 1 st.selectbox cho phép GÕ TRỰC TIẾP TÌM KIẾM (Autocomplete)
+    selected_option = st.selectbox(
+        "🔍 Gõ Mã hoặc Tên đơn vị để tìm kiếm nhanh từ DM_donvi:",
+        options=unit_options,
+        key="sb_select_unit_tab1"
+    )
+
+    selected_unit = None
+    if selected_option != "-- Chọn hoặc gõ tên/mã đơn vị bên dưới --":
+        # Tìm lại dòng tương ứng trong DataFrame
+        if "]" in selected_option:
+            sel_code = selected_option.split("]")[0].replace("[", "").strip()
+            sel_name = selected_option.split("]")[1].strip()
+            match_rows = df_dm[(df_dm['ma_don_vi'] == sel_code) & (df_dm['ten_don_vi'] == sel_name)]
         else:
-            filtered_dm = df_dm
-            
-        if not filtered_dm.empty:
-            options = ["-- Chọn đơn vị từ danh sách gợi ý --"] + [
-                f"{row['ma_don_vi']} - {row['ten_don_vi']}" for _, row in filtered_dm.iterrows()
-            ]
-            
-            selected_option = st.selectbox("Danh sách đơn vị phù hợp (Bấm chọn để tự động điền):", options=options)
-            
-            if selected_option != "-- Chọn đơn vị từ danh sách gợi ý --":
-                sel_code = selected_option.split(" - ")[0]
-                selected_unit = df_dm[df_dm['ma_don_vi'] == sel_code].iloc[0]
-                st.info("💡 Đã tự động điền thông tin đơn vị. Bạn có thể chỉnh sửa Mã, Địa chỉ, SĐT bên dưới trước khi bấm Lưu.")
-        else:
-            st.warning("⚠️ Không tìm thấy đơn vị trong DM_donvi. Nhập Mã đơn vị bên dưới nếu muốn THÊM MỚI vào danh mục.")
-    else:
-        st.info("💡 Danh mục DM_donvi hiện chưa có dữ liệu. Hãy nhập thông tin bên dưới để thêm đơn vị đầu tiên.")
+            sel_name = selected_option.strip()
+            match_rows = df_dm[df_dm['ten_don_vi'] == sel_name]
+
+        if not match_rows.empty:
+            selected_unit = match_rows.iloc[0]
+            st.info("💡 Đã tự động điền thông tin đơn vị. Bạn có thể sửa Mã, Địa chỉ, SĐT bên dưới trước khi bấm Lưu.")
 
     # Form nhập liệu
     with st.form("form_tab1", clear_on_submit=False):
@@ -320,7 +329,7 @@ with tab1:
             # 2. Tên đơn vị
             ten_don_vi = st.text_input(
                 "2. Tên đơn vị / Người nhận:", 
-                value=selected_unit['ten_don_vi'] if selected_unit is not None else search_dv
+                value=selected_unit['ten_don_vi'] if selected_unit is not None else ""
             )
             
             # 3. Địa chỉ
@@ -381,18 +390,6 @@ with tab1:
                         st.success(f"✅ Đã lưu hồ sơ gửi 1 lần {ma_van_don} (Không cập nhật DM_donvi do không có Mã đơn vị).")
                 except Exception as e:
                     st.error(f"❌ Lỗi khi lưu dữ liệu: {e}")
-
-    # Bảng hiển thị danh sách hồ sơ mới nhập
-    st.divider()
-    st.subheader("Danh sách hồ sơ mới nhập")
-    df_hoso_tab1 = load_hoso_data()
-    if not df_hoso_tab1.empty:
-        display_df = df_hoso_tab1[['ma_don_vi', 'ten_don_vi', 'dia_chi', 'ma_van_don', 'ngay_nhan', 'noi_dung_gui']].copy()
-        display_df.insert(0, 'STT', range(1, len(display_df) + 1))
-        st.dataframe(display_df, use_container_width=True)
-    else:
-        st.info("Chưa có dữ liệu hồ sơ.")
-
 # ------------------------------------------
 # TAB 2: THỐNG KÊ & IN PHONG BÌ
 # ------------------------------------------
