@@ -17,6 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Custom CSS cho phong bì B5 ngang (235mm x 165mm) và Print CSS
 st.markdown("""
 <style>
     .app-header {
@@ -28,6 +29,8 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 20px;
     }
+    
+    /* Khung phong bì B5 Ngang tiêu chuẩn (235mm x 165mm) */
     .b5-envelope {
         position: relative;
         width: 235mm;
@@ -41,6 +44,8 @@ st.markdown("""
         page-break-after: always;
         overflow: hidden;
     }
+    
+    /* Căn chỉnh vị trí tuyệt đối theo mm */
     .sender-info {
         position: absolute;
         left: 10mm;
@@ -48,6 +53,7 @@ st.markdown("""
         font-size: 13px;
         line-height: 1.4;
     }
+    
     .notice-box {
         position: absolute;
         left: 10mm;
@@ -65,12 +71,14 @@ st.markdown("""
         padding: 2mm;
         box-sizing: border-box;
     }
+    
     .barcode-area {
         position: absolute;
         left: 110mm;
         top: 60mm;
         text-align: center;
     }
+    
     .receiver-info {
         position: absolute;
         left: 100mm;
@@ -79,12 +87,29 @@ st.markdown("""
         line-height: 1.6;
         right: 10mm;
     }
+    
+    /* CSS hỗ trợ in ấn hàng loạt */
     @media print {
-        body * { visibility: hidden; }
-        .print-area, .print-area * { visibility: visible; }
-        .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-        .b5-envelope { border: 1px solid #000 !important; margin: 0 !important; page-break-after: always !important; }
-        .stApp > header, footer, .sidebar, .stButton, .no-print { display: none !important; }
+        body * {
+            visibility: hidden;
+        }
+        .print-area, .print-area * {
+            visibility: visible;
+        }
+        .print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        .b5-envelope {
+            border: 1px solid #000 !important;
+            margin: 0 !important;
+            page-break-after: always !important;
+        }
+        .stApp > header, footer, .sidebar, .stButton, .no-print {
+            display: none !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -177,7 +202,6 @@ def load_dm_donvi():
         return pd.DataFrame(columns=["ma_don_vi", "ten_don_vi", "dia_chi", "dien_thoai"])
 
 def save_or_update_dm_donvi(ma_dv, ten_dv, dia_chi, dien_thoai):
-    """Lưu bổ sung hoặc Cập nhật đơn vị vào DM_donvi nếu có Mã đơn vị"""
     if not ma_dv.strip():
         return False
     try:
@@ -252,7 +276,6 @@ with tab1:
     selected_unit = None
     
     if not df_dm.empty:
-        # Lọc danh mục đơn vị không phân biệt chữ hoa / chữ thường
         if search_dv:
             filtered_dm = df_dm[
                 df_dm['ma_don_vi'].astype(str).str.contains(search_dv, case=False, na=False) |
@@ -262,7 +285,6 @@ with tab1:
             filtered_dm = df_dm
             
         if not filtered_dm.empty:
-            # Tạo danh sách gợi ý cho Selectbox
             options = ["-- Chọn đơn vị từ danh sách gợi ý --"] + [
                 f"{row['ma_don_vi']} - {row['ten_don_vi']}" for _, row in filtered_dm.iterrows()
             ]
@@ -276,26 +298,38 @@ with tab1:
         else:
             st.warning("⚠️ Không tìm thấy đơn vị trong DM_donvi. Nhập Mã đơn vị bên dưới nếu muốn THÊM MỚI vào danh mục.")
     else:
-        st.info("💡 Danh mục DM_donvi hiện chưa có dữ liệu. Hãy nhập thông tin bên dưới để thêm đơn vị đầu tiên.")    with st.form("form_tab1", clear_on_submit=False):
+        st.info("💡 Danh mục DM_donvi hiện chưa có dữ liệu. Hãy nhập thông tin bên dưới để thêm đơn vị đầu tiên.")
+
+    # Form nhập liệu
+    with st.form("form_tab1", clear_on_submit=False):
         col1, col2 = st.columns(2)
         default_ngay_nhan = datetime.now().date() - timedelta(days=1)
         
         with col1:
-            # 1. Mã đơn vị (Cho phép sửa hoặc nhập mới)
-            ma_don_vi = st.text_input("1. Mã đơn vị (Bắt buộc nếu muốn lưu/sửa DM_donvi):", 
-                                      value=selected_unit['ma_don_vi'] if selected_unit is not None else "")
+            # 1. Mã đơn vị
+            ma_don_vi = st.text_input(
+                "1. Mã đơn vị (Bắt buộc nếu muốn lưu/sửa DM_donvi):", 
+                value=selected_unit['ma_don_vi'] if selected_unit is not None else ""
+            )
             
             # 2. Tên đơn vị
-            ten_don_vi = st.text_input("2. Tên đơn vị / Người nhận:", 
-                                       value=selected_unit['ten_don_vi'] if selected_unit is not None else search_dv)
+            ten_don_vi = st.text_input(
+                "2. Tên đơn vị / Người nhận:", 
+                value=selected_unit['ten_don_vi'] if selected_unit is not None else search_dv
+            )
             
-            # 3. Địa chỉ (Cho phép sửa)
-            dia_chi = st.text_area("3. Địa chỉ:", 
-                                   value=selected_unit['dia_chi'] if selected_unit is not None else "", height=100)
+            # 3. Địa chỉ
+            dia_chi = st.text_area(
+                "3. Địa chỉ:", 
+                value=selected_unit['dia_chi'] if selected_unit is not None else "", 
+                height=100
+            )
             
-            # 4. Điện thoại (Cho phép sửa)
-            dien_thoai = st.text_input("4. Điện thoại:", 
-                                       value=selected_unit['dien_thoai'] if selected_unit is not None else "")
+            # 4. Điện thoại
+            dien_thoai = st.text_input(
+                "4. Điện thoại:", 
+                value=selected_unit['dien_thoai'] if selected_unit is not None else ""
+            )
 
         with col2:
             # 5. Ngày nhận gửi (Mặc định lùi 1 ngày)
@@ -318,13 +352,10 @@ with tab1:
                 st.warning("⚠️ Vui lòng điền Tên đơn vị và Số hiệu bưu gửi (Mã vận đơn)!")
             else:
                 try:
-                    # LOGIC XỬ LÝ CẬP NHẬT/THÊM MỚI DANH MỤC ĐƠN VỊ
                     dm_updated = False
                     if ma_don_vi.strip():
-                        # Nếu có mã đơn vị -> Tiến hành Upsert/Cập nhật hoặc Thêm mới vào DM_donvi
                         dm_updated = save_or_update_dm_donvi(ma_don_vi, ten_don_vi, dia_chi, dien_thoai)
                     
-                    # LƯU VÀO BẢNG HỒ SƠ QUẢN LÝ
                     conn = get_db_connection()
                     cursor = conn.cursor()
                     insert_query = """
@@ -339,7 +370,6 @@ with tab1:
                     conn.commit()
                     cursor.close()
                     
-                    # Thông báo kết quả rõ ràng cho người dùng
                     if dm_updated:
                         st.success(f"✅ Đã lưu hồ sơ {ma_van_don} và ĐỒNG BỘ CẬP NHẬT đơn vị {ma_don_vi} vào danh mục DM_donvi!")
                     else:
