@@ -416,7 +416,7 @@ with tab1:
         st.dataframe(display_df, use_container_width=True)
     else:
         st.info("Chưa có dữ liệu hồ sơ.")
-------------------------------------------
+# ------------------------------------------
 # TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ (TỐI ƯU TỐC ĐỘ)
 # ------------------------------------------
 with tab2:
@@ -433,10 +433,8 @@ with tab2:
     df_tab2 = load_hoso_data(from_date=from_date, to_date=to_date, search_term=search_keyword)
     
     if not df_tab2.empty:
-        # Chuẩn hóa định dạng hiển thị ngày trên bảng
         df_tab2['ngay_nhan_str'] = pd.to_datetime(df_tab2['ngay_nhan']).dt.strftime('%d/%m/%Y')
         
-        # Thêm các cột thao tác checkbox để chọn In, Sửa hoặc Xóa nhanh chóng
         df_display = df_tab2[['id', 'ngay_nhan_str', 'ma_van_don', 'ten_don_vi', 'dia_chi', 'noi_dung_gui', 'so_ban_ke']].copy()
         df_display.insert(0, "In", False)
         df_display.insert(1, "Sửa", False)
@@ -445,7 +443,6 @@ with tab2:
 
         st.markdown("💡 *Mẹo: Tích chọn ô **In**, **Sửa** hoặc **Xóa** ở dòng tương ứng bên dưới để thực hiện thao tác.*")
         
-        # Sử dụng data_editor để render bảng cực nhanh và mượt mà
         edited_df = st.data_editor(
             df_display.drop(columns=['ID']),
             column_config={
@@ -458,12 +455,10 @@ with tab2:
             key="grid_tab2"
         )
 
-        # Lấy danh sách các dòng được tích chọn
         selected_print_rows = edited_df[edited_df["Chọn In"] == True]
         selected_edit_rows = edited_df[edited_df["Chọn Sửa"] == True]
         selected_delete_rows = edited_df[edited_df["Chọn Xóa"] == True]
 
-        # --- XỬ LÝ LỆNH XÓA NHANH ---
         if not selected_delete_rows.empty:
             if st.button("🗑️ Xác nhận XÓA các hồ sơ đã chọn", type="primary"):
                 try:
@@ -480,7 +475,6 @@ with tab2:
                 except Exception as e:
                     st.error(f"Lỗi khi xóa: {e}")
 
-        # --- XỬ LÝ CỬA SỔ SỬA HỒ SƠ ---
         if not selected_edit_rows.empty:
             edit_idx = selected_edit_rows.index[0]
             row_edit = df_tab2.iloc[edit_idx]
@@ -530,7 +524,6 @@ with tab2:
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- XỬ LÝ CỬA SỔ IN PHONG BÌ ---
         if not selected_print_rows.empty:
             st.markdown('<div class="action-window">', unsafe_allow_html=True)
             col_ph_title, col_ph_btn, col_ph_close = st.columns([5, 2, 1.2])
@@ -546,7 +539,6 @@ with tab2:
             if col_ph_close.button("❌ Đóng cửa sổ in", key="btn_close_print"):
                 st.rerun()
 
-            # Render phôi in B5 cho các dòng được chọn
             for idx_print in selected_print_rows.index:
                 row_p = df_tab2.iloc[idx_print]
                 mvd_hoa = str(row_p['ma_van_don']).upper()
