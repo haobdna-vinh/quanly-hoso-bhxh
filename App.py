@@ -304,9 +304,13 @@ tab1, tab2, tab3 = st.tabs([
 # ------------------------------------------
 # TAB 1: NHẬP HỒ SƠ & LOGIC XỬ LÝ ĐƠN VỊ
 # ------------------------------------------
+# ------------------------------------------
+# TAB 1: NHẬP HỒ SƠ & LOGIC XỬ LÝ ĐƠN VỊ
+# ------------------------------------------
 with tab1:
     st.subheader("Nhập hồ sơ gửi & Cập nhật Danh mục Đơn vị")
     
+    # Tải danh mục đơn vị đã được cache sẵn siêu tốc
     df_dm = load_dm_donvi()
     
     if not df_dm.empty:
@@ -315,11 +319,16 @@ with tab1:
         df_dm['dia_chi'] = df_dm['dia_chi'].fillna('').astype(str).str.strip()
         df_dm['dien_thoai'] = df_dm['dien_thoai'].fillna('').astype(str).str.strip()
 
+    # Xây dựng danh sách tùy chọn nhanh
     unit_options = ["-- Chọn hoặc gõ tên/mã đơn vị bên dưới --"]
     if not df_dm.empty:
+        # Tạo mapping để truy xuất nhanh O(1) thay vì dùng vòng lặp lọc DataFrame chậm
+        unit_dict = {}
         for _, row in df_dm.iterrows():
             code_str = f"[{row['ma_don_vi']}] " if row['ma_don_vi'] else ""
-            unit_options.append(f"{code_str}{row['ten_don_vi']}")
+            display_text = f"{code_str}{row['ten_don_vi']}"
+            unit_options.append(display_text)
+            unit_dict[display_text] = row
 
     selected_option = st.selectbox(
         "🔍 Gõ Mã hoặc Tên đơn vị để tìm kiếm nhanh từ DM_donvi:",
@@ -328,20 +337,10 @@ with tab1:
     )
 
     selected_unit = None
-    if selected_option != "-- Chọn hoặc gõ tên/mã đơn vị bên dưới --":
-        if "]" in selected_option:
-            sel_code = selected_option.split("]")[0].replace("[", "").strip()
-            sel_name = selected_option.split("]")[1].strip()
-            match_rows = df_dm[(df_dm['ma_don_vi'] == sel_code) & (df_dm['ten_don_vi'] == sel_name)]
-        else:
-            sel_name = selected_option.strip()
-            match_rows = df_dm[df_dm['ten_don_vi'] == sel_name]
+    if selected_option != "-- Chọn hoặc gõ tên/mã đơn vị bên dưới --" and selected_option in unit_dict:
+        selected_unit = unit_dict[selected_option]
 
-        if not match_rows.empty:
-            selected_unit = match_rows.iloc[0]
-            st.info("💡 Đã điền thông tin đơn vị. Các ô Số bản kê & Mã vận đơn đã được làm mới để nhập lần gửi này.")
-
-    form_key_suffix = selected_unit['ma_don_vi'] if selected_unit is not None else "new"
+    form_key_suffix = selected_unit['ma_don_vi'] if selected_unit is not None and selected_unit['ma_don_vi'] else "new"
 
     with st.form("form_tab1", clear_on_submit=False):
         col1, col2 = st.columns(2)
@@ -417,14 +416,7 @@ with tab1:
         st.dataframe(display_df, use_container_width=True)
     else:
         st.info("Chưa có dữ liệu hồ sơ.")
-
-# ------------------------------------------
-# TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ
-# ------------------------------------------
-# ------------------------------------------
-# TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ
-# ------------------------------------------
-# ------------------------------------------
+------------------------------------------
 # TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ (TỐI ƯU TỐC ĐỘ)
 # ------------------------------------------
 with tab2:
