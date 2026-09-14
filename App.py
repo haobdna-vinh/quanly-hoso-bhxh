@@ -194,11 +194,11 @@ def init_db_tables():
 
 init_db_tables()
 def load_dm_donvi():
-    """Tải dữ liệu chính xác theo cấu trúc bảng DM_donvi trên Supabase"""
+    """Tải dữ liệu chính xác theo tên cột maDV trên Supabase"""
     try:
         conn = get_db_connection()
-        # Truy vấn đúng tên bảng "DM_donvi" và các cột mADV, tenDV, diachidv, dienthoai
-        query = 'SELECT COALESCE("mADV", \'\') as ma_don_vi, "tenDV" as ten_don_vi, "diachidv" as dia_chi, "dienthoai" as dien_thoai FROM "DM_donvi" ORDER BY "tenDV";'
+        # Sửa "mADV" thành "maDV"
+        query = 'SELECT COALESCE("maDV", \'\') as ma_don_vi, "tenDV" as ten_don_vi, "diachidv" as dia_chi, "dienthoai" as dien_thoai FROM "DM_donvi" ORDER BY "tenDV";'
         df = pd.read_sql_query(query, conn)
         return df
     except Exception as e:
@@ -206,16 +206,16 @@ def load_dm_donvi():
         return pd.DataFrame(columns=["ma_don_vi", "ten_don_vi", "dia_chi", "dien_thoai"])
 
 def save_or_update_dm_donvi(ma_dv, ten_dv, dia_chi, dien_thoai):
-    """Cập nhật dữ liệu vào bảng DM_donvi"""
+    """Cập nhật dữ liệu vào bảng DM_donvi sử dụng cột maDV"""
     if not ma_dv.strip():
         return False
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         query = """
-            INSERT INTO "DM_donvi" ("mADV", "tenDV", "diachidv", "dienthoai")
+            INSERT INTO "DM_donvi" ("maDV", "tenDV", "diachidv", "dienthoai")
             VALUES (%s, %s, %s, %s)
-            ON CONFLICT ("mADV") 
+            ON CONFLICT ("maDV") 
             DO UPDATE SET 
                 "tenDV" = EXCLUDED."tenDV",
                 "diachidv" = EXCLUDED."diachidv",
@@ -229,6 +229,7 @@ def save_or_update_dm_donvi(ma_dv, ten_dv, dia_chi, dien_thoai):
         conn.rollback()
         st.error(f"Lỗi cập nhật danh mục đơn vị: {e}")
         return False
+
 def load_hoso_data(from_date=None, to_date=None, search_term=""):
     try:
         conn = get_db_connection()
