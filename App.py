@@ -424,8 +424,11 @@ with tab1:
 # ------------------------------------------
 # TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ
 # ------------------------------------------
+# ------------------------------------------
+# TAB 2: THỐNG KÊ, SỬA/XÓA & IN PHONG BÌ (TỐI ƯU TỐC ĐỘ)
+# ------------------------------------------
 with tab2:
-    st.subheader("Thống kê hồ sơ & Thao tác in/sửa/xóa")
+    st.subheader("Thống kê hồ sơ & Quản lý in/sửa/xóa")
     
     col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
     with col_f1:
@@ -438,25 +441,72 @@ with tab2:
     df_tab2 = load_hoso_data(from_date=from_date, to_date=to_date, search_term=search_keyword)
     
     if not df_tab2.empty:
-        # --- KHU VỰC CỬA SỔ THAO TÁC RIÊNG BIỆT (SỬA) ---
-        if 'editing_id' in st.session_state and st.session_state['editing_id']:
-            edit_id = st.session_state['editing_id']
-            row_edit = df_tab2[df_tab2['id'] == edit_id].iloc[0]
+        # Chuẩn hóa định dạng hiển thị ngày trên bảng
+        df_tab2['ngay_nhan_str'] = pd.to_datetime(df_tab2['ngay_nhan']).dt.strftime('%d/%m/%Y')
+        
+        # Thêm các cột thao tác checkbox để chọn In, Sửa hoặc Xóa nhanh chóng
+        df_display = df_tab2[['id', 'ngay_nhan_str', 'ma_van_don', 'ten_don_vi', 'dia_chi', 'noi_dung_gui', 'so_ban_ke']].copy()
+        df_display.insert(0, "In", False)
+        df_display.insert(1, "Sửa", False)
+        df_display.insert(2, "Xóa", False)
+        df_display.columns = ['Chọn In', 'Chọn Sửa', 'Chọn Xóa', 'ID', 'Ngày gửi', 'Số hiệu bưu gửi', 'Tên đơn vị', 'Địa chỉ', 'Nội dung', 'Số bản kê']
+
+        st.markdown("💡 *Mẹo: Tích chọn ô **In**, **Sửa** hoặc **Xóa** ở dòng tương ứng bên dưới để thực hiện thao tác.*")
+        
+        # Sử dụng data_editor để render bảng cực nhanh và mượt mà
+        edited_df = st.data_editor(
+            df_display.drop(columns=['ID']),
+            column_config={
+                "Chọn In": st.column_config.CheckboxColumn("🖨️ In", default=False),
+                "Chọn Sửa": st.column_config.CheckboxColumn("✏️ Sửa", default=False),
+                "Chọn Xóa": st.column_config.CheckboxColumn("🗑️ Xóa", default=False),
+            },
+            disabled=['Ngày gửi', 'Số hiệu bưu gửi', 'Tên đơn vị', 'Địa chỉ', 'Nội dung', 'Số bản kê'],
+            use_container_width=True,
+            key="grid_tab2"
+        )
+
+        # Lấy danh sách các dòng được tích chọn
+        selected_print_rows = edited_df[edited_df["Chọn In"] == True]
+        selected_edit_rows = edited_df[edited_df["Chọn Sửa"] == True]
+        selected_delete_rows = edited_df[edited_df["Chọn Xóa"] == True]
+
+        # --- XỬ LÝ LỆNH XÓA NHANH ---
+        if not selected_delete_rows.empty:
+            if st.button("🗑️ Xác nhận XÓA các hồ sơ đã chọn", type="primary"):
+                try:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    for idx_row in selected_delete_rows.index:
+                        real_id = df_tab2.iloc[idx_row]['id']
+                        cursor.execute("DELETE FROM quanly_hoso WHERE id = %s;", (real_id,))
+                    conn.commit()
+                    cursor.close()
+                    st.cache_data.clear()
+                    st.success("✅ Đã xóa thành công các hồ sơ được chọn!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Lỗi khi xóa: {e}")
+
+        # --- XỬ LÝ CỬA SỔ SỬA HỒ SƠ ---
+        if not selected_edit_rows.empty:
+            edit_idx = selected_edit_rows.index[0]
+            row_edit = df_tab2.iloc[edit_idx]
             
             st.markdown('<div class="action-window">', unsafe_allow_html=True)
             st.warning(f"📝 **Cửa sổ chỉnh sửa hồ sơ:** {row_edit['ma_van_don']}")
-            with st.form(f"form_edit_hoso_{edit_id}"):
+            with st.form(f"form_edit_hoso_{row_edit['id']}"):
                 col_e1, col_e2 = st.columns(2)
                 with col_e1:
                     e_ngay_nhan = st.date_input("Ngày nhận gửi:", value=pd.to_datetime(row_edit['ngay_nhan']).date(), format="DD/MM/YYYY")
                     e_ma_van_don = st.text_input("Số hiệu bưu gửi / Mã vận đơn:", value=row_edit['ma_van_don'])
-                    e_ma_don_vi = st.text_input("Mã đơn vị:", value=row_edit['ma_don_vi'])
+                    e_ma_don_vi = st.text_input("Mã đơn vị:", value=str(row_edit['ma_don_vi'] or ''))
                     e_ten_don_vi = st.text_input("Tên đơn vị:", value=row_edit['ten_don_vi'])
                 with col_e2:
-                    e_dia_chi = st.text_area("Địa chỉ:", value=row_edit['dia_chi'], height=100)
-                    e_dien_thoai = st.text_input("Điện thoại:", value=row_edit['dien_thoai'])
+                    e_dia_chi = st.text_area("Địa chỉ:", value=str(row_edit['dia_chi'] or ''), height=100)
+                    e_dien_thoai = st.text_input("Điện thoại:", value=str(row_edit['dien_thoai'] or ''))
                     e_loai_ho_so = st.selectbox("Nội dung gửi:", DANH_SACH_LOAI_HO_SO, index=DANH_SACH_LOAI_HO_SO.index(row_edit['noi_dung_gui']) if row_edit['noi_dung_gui'] in DANH_SACH_LOAI_HO_SO else 0)
-                    e_so_ban_ke = st.text_input("Số bản kê 05:", value=row_edit['so_ban_ke'])
+                    e_so_ban_ke = st.text_input("Số bản kê 05:", value=str(row_edit['so_ban_ke'] or ''))
                     
                 col_btn_e1, col_btn_e2 = st.columns(2)
                 btn_save_edit = col_btn_e1.form_submit_button("💾 Lưu Cập Nhật", type="primary", use_container_width=True)
@@ -474,30 +524,25 @@ with tab2:
                         """
                         cursor.execute(update_query, (
                             e_ngay_nhan, e_ma_van_don.strip().upper(), e_ma_don_vi, e_ten_don_vi,
-                            e_dia_chi, e_dien_thoai, e_loai_ho_so, e_so_ban_ke, edit_id
+                            e_dia_chi, e_dien_thoai, e_loai_ho_so, e_so_ban_ke, row_edit['id']
                         ))
                         conn.commit()
                         cursor.close()
                         st.cache_data.clear()
-                        del st.session_state['editing_id']
                         st.success("✅ Cập nhật hồ sơ thành công!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Lỗi cập nhật: {e}")
                         
                 if btn_cancel_edit:
-                    del st.session_state['editing_id']
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- KHU VỰC CỬA SỔ IN PHONG BÌ KÈM NÚT GỬI MÁY IN VÀ ĐÓNG ---
-        if 'selected_print_id' in st.session_state and st.session_state['selected_print_id']:
-            print_id = st.session_state['selected_print_id']
-            row_p = df_tab2[df_tab2['id'] == print_id].iloc[0]
-            
+        # --- XỬ LÝ CỬA SỔ IN PHONG BÌ ---
+        if not selected_print_rows.empty:
             st.markdown('<div class="action-window">', unsafe_allow_html=True)
             col_ph_title, col_ph_btn, col_ph_close = st.columns([5, 2, 1.2])
-            col_ph_title.write(f"🖨️ **Cửa sổ in phôi B5 ngang:** `{row_p['ma_van_don']}`")
+            col_ph_title.write(f"🖨️ **Cửa sổ in phôi B5 ngang** ({len(selected_print_rows)} hồ sơ được chọn)")
             
             if col_ph_btn.button("🖨️ Gửi lệnh máy in", type="primary", key="btn_trigger_print"):
                 st.markdown("""
@@ -505,96 +550,50 @@ with tab2:
                         window.print();
                     </script>
                 """, unsafe_allow_html=True)
-                del st.session_state['selected_print_id']
-                st.rerun()
                 
-            if col_ph_close.button("❌ Đóng", key="btn_close_print"):
-                del st.session_state['selected_print_id']
+            if col_ph_close.button("❌ Đóng cửa sổ in", key="btn_close_print"):
                 st.rerun()
-            
-            mvd_hoa = str(row_p['ma_van_don']).upper()
-            barcode_b64 = get_barcode_image_base64(mvd_hoa)
-            
-            envelope_html = f"""
-            <div class="print-area">
-                <div class="b5-envelope">
-                    <div class="sender-info">
-                        <b>NGƯỜI GỬI: BHXH TỈNH NGHỆ AN</b><br>
-                        Địa chỉ: Số 06, đường Trường Thi, TP Vinh, Nghệ An<br>
-                        Điện thoại: 0238.3844888
-                    </div>
-                    <div class="notice-box">
-                        PHÁT ĐỒNG KIỂM, THU HỒI<br>"MẪU 05" TRONG PHONG BÌ
-                    </div>
-                    <div class="barcode-area">
-                        <div style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">Mã vận đơn bưu điện:</div>
-                        {f'<img src="{barcode_b64}" style="max-height: 45px; width: 190px; object-fit: contain;" />' if barcode_b64 else ''}
-                        <div style="font-size: 14px; font-weight: bold; letter-spacing: 1.5px; margin-top: 2px;">{mvd_hoa}</div>
-                    </div>
-                    <div class="receiver-info">
-                        <b>Kính gửi:</b> <span style="font-size: 15px; font-weight: bold;">{row_p['ten_don_vi']}</span><br>
-                        <b>Mã đơn vị:</b> {row_p['ma_don_vi']}<br>
-                        <b>Địa chỉ:</b> {row_p['dia_chi']}<br>
-                        <b>Điện thoại:</b> {row_p['dien_thoai']}<br>
-                        <b>Nội dung gửi:</b> {row_p['noi_dung_gui']}<br>
-                        <b>Số bản kê 05:</b> {row_p['so_ban_ke']}
+
+            # Render phôi in B5 cho các dòng được chọn
+            for idx_print in selected_print_rows.index:
+                row_p = df_tab2.iloc[idx_print]
+                mvd_hoa = str(row_p['ma_van_don']).upper()
+                barcode_b64 = get_barcode_image_base64(mvd_hoa)
+                
+                envelope_html = f"""
+                <div class="print-area">
+                    <div class="b5-envelope">
+                        <div class="sender-info">
+                            <b>NGƯỜI GỬI: BHXH TỈNH NGHỆ AN</b><br>
+                            Địa chỉ: Số 06, đường Trường Thi, TP Vinh, Nghệ An<br>
+                            Điện thoại: 0238.3844888
+                        </div>
+                        <div class="notice-box">
+                            PHÁT ĐỒNG KIỂM, THU HỒI<br>"MẪU 05" TRONG PHONG BÌ
+                        </div>
+                        <div class="barcode-area">
+                            <div style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">Mã vận đơn bưu điện:</div>
+                            {f'<img src="{barcode_b64}" style="max-height: 45px; width: 190px; object-fit: contain;" />' if barcode_b64 else ''}
+                            <div style="font-size: 14px; font-weight: bold; letter-spacing: 1.5px; margin-top: 2px;">{mvd_hoa}</div>
+                        </div>
+                        <div class="receiver-info">
+                            <b>Kính gửi:</b> <span style="font-size: 15px; font-weight: bold;">{row_p['ten_don_vi']}</span><br>
+                            <b>Mã đơn vị:</b> {row_p['ma_don_vi']}<br>
+                            <b>Địa chỉ:</b> {row_p['dia_chi']}<br>
+                            <b>Điện thoại:</b> {row_p['dien_thoai']}<br>
+                            <b>Nội dung gửi:</b> {row_p['noi_dung_gui']}<br>
+                            <b>Số bản kê 05:</b> {row_p['so_ban_ke']}
+                        </div>
                     </div>
                 </div>
-            </div>
-            """
-            st.markdown(envelope_html, unsafe_allow_html=True)
+                """
+                st.markdown(envelope_html, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- BẢNG DANH SÁCH TÌM KIẾM CHUẨN GỌN GÀNG ---
-        st.write(f"**Danh sách kết quả tìm kiếm ({len(df_tab2)} hồ sơ):**")
-        
-        # Tiêu đề cột
-        header_cols = st.columns([0.6, 1.2, 1.8, 2.5, 3.2, 1.8])
-        header_cols[0].markdown("**STT**")
-        header_cols[1].markdown("**Ngày gửi**")
-        header_cols[2].markdown("**Số hiệu**")
-        header_cols[3].markdown("**Tên đơn vị**")
-        header_cols[4].markdown("**Địa chỉ**")
-        header_cols[5].markdown("**Thao tác**")
         st.divider()
-
-        # Danh sách dòng kèm nút thao tác trên cùng 1 hàng
-        for idx, row in df_tab2.reset_index(drop=True).iterrows():
-            ngay_str = pd.to_datetime(row['ngay_nhan']).strftime('%d/%m/%Y') if pd.notnull(row['ngay_nhan']) else ""
-            
-            row_cols = st.columns([0.6, 1.2, 1.8, 2.5, 3.2, 1.8])
-            row_cols[0].write(str(idx + 1))
-            row_cols[1].write(ngay_str)
-            row_cols[2].markdown(f"**{row['ma_van_don']}**")
-            row_cols[3].write(row['ten_don_vi'])
-            row_cols[4].write(row['dia_chi'])
-            
-            # Cột chứa 3 nút In / Sửa / Xóa trên cùng 1 hàng nhỏ gọn
-            sub_b1, sub_b2, sub_b3 = row_cols[5].columns(3)
-            if sub_b1.button("🖨️", key=f"t_in_{row['id']}", help="In phong bì"):
-                st.session_state['selected_print_id'] = row['id']
-                st.rerun()
-            if sub_b2.button("✏️", key=f"t_sua_{row['id']}", help="Sửa hồ sơ"):
-                st.session_state['editing_id'] = row['id']
-                st.rerun()
-            if sub_b3.button("🗑️", key=f"t_xoa_{row['id']}", help="Xóa hồ sơ"):
-                try:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM quanly_hoso WHERE id = %s;", (row['id'],))
-                    conn.commit()
-                    cursor.close()
-                    st.cache_data.clear()
-                    st.success(f"✅ Đã xóa hồ sơ {row['ma_van_don']}!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Lỗi khi xóa: {e}")
-            
-            st.divider()
-
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            df_tab2.to_excel(writer, index=False, sheet_name='Danh_Sach_Tim_Kiem')
+            df_tab2.drop(columns=['ngay_nhan_str']).to_excel(writer, index=False, sheet_name='Danh_Sach_Tim_Kiem')
         st.download_button(
             label=f"📥 Xuất Excel toàn bộ danh sách kết quả ({len(df_tab2)} hồ sơ)",
             data=buffer.getvalue(),
